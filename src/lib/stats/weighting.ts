@@ -36,10 +36,8 @@ export const KNOWN_DISTRIBUTIONS: Record<string, DemographicDistribution> = {
     unspecified: 0.08,
   },
   gender: {
-    male: 0.49,
-    female: 0.49,
-    "non-binary": 0.01,
-    unspecified: 0.01,
+    male: 0.50,
+    female: 0.50,
   },
 };
 

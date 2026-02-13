@@ -97,6 +97,21 @@ export default function AdminPage() {
     toast.success("Poll moderated");
   };
 
+  const deletePoll = async (pollId: string) => {
+    const { error } = await supabase
+      .from("polls")
+      .delete()
+      .eq("id", pollId);
+
+    if (error) {
+      toast.error("Failed to delete: " + error.message);
+      return;
+    }
+
+    setPolls(polls.filter((p) => p.id !== pollId));
+    toast.success("Poll deleted");
+  };
+
   const resolveReport = async (reportId: string) => {
     const { error } = await supabase
       .from("reports")
@@ -197,6 +212,18 @@ export default function AdminPage() {
                           Moderate
                         </Button>
                       )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (confirm("Delete this poll permanently?")) {
+                            deletePoll(poll.id);
+                          }
+                        }}
+                        className="text-xs border-red-500/30 text-red-300 hover:bg-red-500/10"
+                      >
+                        Delete
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>

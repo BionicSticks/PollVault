@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PollVault - Open Referendum Platform",
+  title: "PollVault - Open Polling Platform",
   description:
-    "Create polls, vote on what matters, and see real statistics. Privacy-first, open-source referendum platform.",
+    "Create polls, get statistically meaningful results. Demographic data is used for statistical grouping and never linked to your identity.",
 };
 
 export default function RootLayout({

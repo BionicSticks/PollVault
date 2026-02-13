@@ -55,13 +55,29 @@ export function PollCard({ poll, index = 0 }: PollCardProps) {
             )}
           </div>
 
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
             {poll.featured && (
               <Badge
                 variant="secondary"
                 className="text-[10px] bg-primary/20 text-primary border-0"
               >
                 Featured
+              </Badge>
+            )}
+            {poll.categories && (
+              <Badge
+                variant="secondary"
+                className="text-[10px] bg-[oklch(0.7_0.15_190)]/20 text-[oklch(0.7_0.15_190)] border-0"
+              >
+                {poll.categories.name}
+              </Badge>
+            )}
+            {poll.organisations && (
+              <Badge
+                variant="secondary"
+                className="text-[10px] bg-[oklch(0.7_0.2_280)]/20 text-[oklch(0.7_0.2_280)] border-0"
+              >
+                {poll.organisations.name}
               </Badge>
             )}
             <span className="text-xs text-muted-foreground">

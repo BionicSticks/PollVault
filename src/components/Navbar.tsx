@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -49,13 +50,25 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[oklch(0.7_0.2_280)] to-[oklch(0.7_0.15_190)] flex items-center justify-center">
-              <span className="text-white font-bold text-sm">P</span>
+            <div className="relative w-9 h-9 rounded-lg bg-gradient-to-br from-[oklch(0.7_0.2_280)] to-[oklch(0.7_0.15_190)] p-[2px] shadow-[0_0_12px_oklch(0.7_0.2_280/0.4)]">
+              <Image
+                src="/PollVaultLogo.JPG"
+                alt="PollVault"
+                width={32}
+                height={32}
+                className="rounded-[6px] w-full h-full object-cover"
+              />
             </div>
             <span className="font-bold text-lg gradient-text">PollVault</span>
           </Link>
 
           <div className="flex items-center gap-3">
+            <Link
+              href="/organisations"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block"
+            >
+              Organisations
+            </Link>
             <Link href="/polls/create">
               <Button
                 variant="outline"

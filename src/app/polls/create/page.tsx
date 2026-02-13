@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +23,14 @@ import {
 } from "@/components/ui/select";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { AlertTriangle } from "lucide-react";
+import type { Category, Organisation } from "@/lib/supabase/types";
+
+interface SimilarPoll {
+  id: string;
+  title: string;
+  similarity_score: number;
+}
 
 export default function CreatePollPage() {
   const router = useRouter();
@@ -31,6 +40,52 @@ export default function CreatePollPage() {
   const [options, setOptions] = useState(["", ""]);
   const [requireVerified, setRequireVerified] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [categoryId, setCategoryId] = useState<string>("");
+  const [orgId, setOrgId] = useState<string>("");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [userOrgs, setUserOrgs] = useState<Organisation[]>([]);
+  const [similarPolls, setSimilarPolls] = useState<SimilarPoll[]>([]);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+  const duplicateTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Load categories and user's organisations
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((res) => res.json())
+      .then((data) => setCategories(data.categories || []))
+      .catch(() => {});
+
+    fetch("/api/organisations?limit=50")
+      .then((res) => res.json())
+      .then((data) => setUserOrgs(data.organisations || []))
+      .catch(() => {});
+  }, []);
+
+  // Debounced duplicate check on title change
+  useEffect(() => {
+    if (duplicateTimer.current) clearTimeout(duplicateTimer.current);
+
+    if (!title.trim() || title.trim().length < 5) {
+      setSimilarPolls([]);
+      return;
+    }
+
+    duplicateTimer.current = setTimeout(async () => {
+      setCheckingDuplicate(true);
+      const res = await fetch(
+        `/api/search?q=${encodeURIComponent(title)}&exact=true`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setSimilarPolls(data.similar || []);
+      }
+      setCheckingDuplicate(false);
+    }, 500);
+
+    return () => {
+      if (duplicateTimer.current) clearTimeout(duplicateTimer.current);
+    };
+  }, [title]);
 
   const addOption = () => {
     if (options.length < 10) {
@@ -61,6 +116,12 @@ export default function CreatePollPage() {
       return;
     }
 
+    if (similarPolls.length > 0) {
+      toast.error("A similar poll already exists. Please change your title.");
+      setLoading(false);
+      return;
+    }
+
     const res = await fetch("/api/polls", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -70,13 +131,20 @@ export default function CreatePollPage() {
         type,
         options: filledOptions,
         require_verified: requireVerified,
+        category_id: categoryId && categoryId !== "none" ? categoryId : null,
+        org_id: orgId && orgId !== "none" ? orgId : null,
       }),
     });
 
     const data = await res.json();
 
     if (!res.ok) {
-      toast.error(data.error || "Failed to create poll");
+      if (data.similar) {
+        setSimilarPolls(data.similar);
+        toast.error("A similar poll already exists");
+      } else {
+        toast.error(data.error || "Failed to create poll");
+      }
       setLoading(false);
       return;
     }
@@ -113,6 +181,34 @@ export default function CreatePollPage() {
                   required
                   className="bg-white/5 border-white/10 text-lg"
                 />
+                {checkingDuplicate && (
+                  <p className="text-xs text-muted-foreground">
+                    Checking for similar polls...
+                  </p>
+                )}
+                {similarPolls.length > 0 && (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+                    <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
+                      <AlertTriangle className="h-4 w-4" />
+                      Similar polls already exist
+                    </div>
+                    {similarPolls.map((sp) => (
+                      <Link
+                        key={sp.id}
+                        href={`/polls/${sp.id}`}
+                        className="block text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        &ldquo;{sp.title}&rdquo;{" "}
+                        <span className="text-xs text-amber-400">
+                          ({Math.round(sp.similarity_score * 100)}% match)
+                        </span>
+                      </Link>
+                    ))}
+                    <p className="text-xs text-muted-foreground">
+                      Please change your title to make it unique.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -168,6 +264,50 @@ export default function CreatePollPage() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Category <span className="text-muted-foreground">(optional)</span></Label>
+                  <Select
+                    value={categoryId}
+                    onValueChange={setCategoryId}
+                  >
+                    <SelectTrigger className="bg-white/5 border-white/10">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No category</SelectItem>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {userOrgs.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Organisation <span className="text-muted-foreground">(optional)</span></Label>
+                    <Select
+                      value={orgId}
+                      onValueChange={setOrgId}
+                    >
+                      <SelectTrigger className="bg-white/5 border-white/10">
+                        <SelectValue placeholder="Select organisation" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Personal poll</SelectItem>
+                        {userOrgs.map((org) => (
+                          <SelectItem key={org.id} value={org.id}>
+                            {org.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-3">
                 <Label>Options</Label>
                 {options.map((option, index) => (
@@ -210,10 +350,10 @@ export default function CreatePollPage() {
 
               <Button
                 type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-[oklch(0.7_0.2_280)] to-[oklch(0.7_0.15_190)] text-white border-0 hover:opacity-90 h-12 text-lg"
+                disabled={loading || similarPolls.length > 0}
+                className="w-full bg-gradient-to-r from-[oklch(0.7_0.2_280)] to-[oklch(0.7_0.15_190)] text-white border-0 hover:opacity-90 h-12 text-lg disabled:opacity-50"
               >
-                {loading ? "Creating..." : "Launch Poll"}
+                {loading ? "Creating..." : similarPolls.length > 0 ? "Similar poll exists — change title" : "Launch Poll"}
               </Button>
             </form>
           </CardContent>

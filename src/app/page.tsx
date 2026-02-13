@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { PollCard } from "@/components/PollCard";
+import { SearchBar } from "@/components/SearchBar";
+import { CategoryFilter } from "@/components/CategoryFilter";
 import { motion } from "framer-motion";
 import type { Poll } from "@/lib/supabase/types";
 
@@ -11,26 +13,51 @@ export default function HomePage() {
   const [featuredPolls, setFeaturedPolls] = useState<Poll[]>([]);
   const [recentPolls, setRecentPolls] = useState<Poll[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    async function load() {
-      const [featuredRes, recentRes] = await Promise.all([
-        fetch("/api/polls?featured=true&limit=3"),
-        fetch("/api/polls?limit=12"),
-      ]);
+  const loadPolls = useCallback(async (category?: string | null, query?: string) => {
+    setLoading(true);
 
-      if (featuredRes.ok) {
-        const data = await featuredRes.json();
-        setFeaturedPolls(data.polls || []);
-      }
-      if (recentRes.ok) {
-        const data = await recentRes.json();
+    // If searching, use search API
+    if (query) {
+      const params = new URLSearchParams({ q: query, limit: "20" });
+      if (category) params.set("category", category);
+      const res = await fetch(`/api/search?${params}`);
+      if (res.ok) {
+        const data = await res.json();
         setRecentPolls(data.polls || []);
+        setFeaturedPolls([]);
       }
       setLoading(false);
+      return;
     }
-    load();
+
+    // Otherwise load featured + recent with optional category filter
+    const catParam = category ? `&category=${category}` : "";
+    const [featuredRes, recentRes] = await Promise.all([
+      fetch(`/api/polls?featured=true&limit=3${catParam}`),
+      fetch(`/api/polls?limit=12${catParam}`),
+    ]);
+
+    if (featuredRes.ok) {
+      const data = await featuredRes.json();
+      setFeaturedPolls(data.polls || []);
+    }
+    if (recentRes.ok) {
+      const data = await recentRes.json();
+      setRecentPolls(data.polls || []);
+    }
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    loadPolls();
+  }, [loadPolls]);
+
+  useEffect(() => {
+    loadPolls(selectedCategory, searchQuery);
+  }, [selectedCategory, searchQuery, loadPolls]);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-12">
@@ -41,14 +68,16 @@ export default function HomePage() {
         transition={{ duration: 0.7 }}
         className="text-center py-16 sm:py-24"
       >
+        <p className="text-sm uppercase tracking-widest text-muted-foreground mb-6">
+          No hidden samples. No editorial spin. Just numbers.
+        </p>
         <h1 className="text-5xl sm:text-7xl font-bold tracking-tight">
           <span className="gradient-text">Your Voice.</span>
           <br />
           <span className="text-foreground">Real Data.</span>
         </h1>
-        <p className="text-lg sm:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto">
-          Create polls, cast votes, and see statistically accurate results with
-          demographic breakdowns. Privacy-first — no individual data stored.
+        <p className="text-base sm:text-lg text-muted-foreground mt-6 max-w-6xl mx-auto text-center">
+          Most polls hide their sample size, cherry-pick demographics, and exist to push a narrative. PollVault is the opposite — every result shows its confidence interval, margin of error, and demographic breakdown. Your data is used solely for statistical grouping and is never linked to you.
         </p>
         <div className="flex items-center justify-center gap-4 mt-8">
           <Link href="/polls/create">
@@ -86,6 +115,20 @@ export default function HomePage() {
           ))}
         </div>
       </motion.section>
+
+      {/* Search & Filter */}
+      <section className="mb-8 space-y-4">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+          <SearchBar
+            onSearch={(q) => setSearchQuery(q)}
+            placeholder="Search polls..."
+          />
+        </div>
+        <CategoryFilter
+          selected={selectedCategory}
+          onSelect={setSelectedCategory}
+        />
+      </section>
 
       {/* Featured Polls */}
       {featuredPolls.length > 0 && (
